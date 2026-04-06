@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using JobApplicationSite.Data;
 using JobApplicationSite.Services;
@@ -18,20 +19,42 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
 
-// ── Database (SQL Server; swap provider via configuration) ────────────────────
+// ── Database: Azure SQL (EF Core SqlServer provider) ─────────────────────────
+// In production, use an Azure SQL connection string with Managed Identity:
+//   "Server=tcp:<server>.database.windows.net,1433;Database=<db>;Authentication=Active Directory Default"
+// For local development, a standard SQL Server connection string works too.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 // ── Azure Blob Storage ────────────────────────────────────────────────────────
+// Prefer Managed Identity (no secrets): set AzureStorage:AccountUri to
+//   "https://<account>.blob.core.windows.net"
+// Fallback to connection string:  AzureStorage:ConnectionString
+// Dev-only fallback: local file system when neither is configured.
+var storageAccountUri = builder.Configuration["AzureStorage:AccountUri"];
 var storageConnectionString = builder.Configuration["AzureStorage:ConnectionString"];
-if (!string.IsNullOrWhiteSpace(storageConnectionString))
+
+if (!string.IsNullOrWhiteSpace(storageAccountUri))
 {
+    // Managed Identity / DefaultAzureCredential (recommended for production)
+    builder.Services.AddSingleton(
+        new BlobServiceClient(new Uri(storageAccountUri), new DefaultAzureCredential()));
+    builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+}
+else if (!string.IsNullOrWhiteSpace(storageConnectionString))
+{
+    // Connection string (shared-key or SAS — suitable for dev/testing)
     builder.Services.AddSingleton(new BlobServiceClient(storageConnectionString));
     builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 }
 else
 {
-    // No-op implementation for local/development without Azure storage configured
+    // Local file system fallback — DEVELOPMENT ONLY, not suitable for production
     builder.Services.AddScoped<IBlobStorageService, LocalFileStorageService>();
 }
 
@@ -71,4 +94,5 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
 

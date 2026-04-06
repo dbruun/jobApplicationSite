@@ -1,5 +1,21 @@
 version: "3.9"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# LOCAL DEVELOPMENT ONLY
+#
+# In production this app uses:
+#   • Azure SQL Database  — set ConnectionStrings__DefaultConnection to an
+#                           Azure SQL connection string with Managed Identity
+#                           or a SQL authentication string.
+#   • Azure Blob Storage  — set AzureStorage__AccountUri to your storage
+#                           account URI (Managed Identity) or supply a
+#                           connection string via AzureStorage__ConnectionString.
+#
+# For local development a SQL Server 2022 container is started automatically.
+# Blob storage falls back to the local filesystem when neither AccountUri nor
+# ConnectionString is provided.
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   web:
     build:
@@ -9,9 +25,13 @@ services:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      # Local SQL Server (dev only). Replace with Azure SQL string for staging/prod.
       - ConnectionStrings__DefaultConnection=Server=db;Database=JobApplicationSiteDb;User Id=sa;Password=${SQL_PASSWORD:-YourStrong!Passw0rd};TrustServerCertificate=True
       - AzureAd__TenantId=${AZURE_TENANT_ID}
       - AzureAd__ClientId=${AZURE_CLIENT_ID}
+      # Azure Blob Storage — set AccountUri for Managed Identity (preferred in prod)
+      # or ConnectionString for shared-key auth. Leave both empty to use local filesystem.
+      - AzureStorage__AccountUri=${AZURE_STORAGE_ACCOUNT_URI}
       - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
       - AzureDocumentIntelligence__Endpoint=${AZURE_DOC_INTELLIGENCE_ENDPOINT}
       - AzureDocumentIntelligence__ApiKey=${AZURE_DOC_INTELLIGENCE_KEY}
@@ -20,6 +40,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Local SQL Server — DEVELOPMENT ONLY.
+  # In production, point DefaultConnection at an Azure SQL Database.
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
@@ -30,7 +52,7 @@ services:
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ${SQL_PASSWORD:-YourStrong!Passw0rd} -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${SQL_PASSWORD:-YourStrong!Passw0rd} -Q 'SELECT 1' -No || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -38,3 +60,4 @@ services:
 
 volumes:
   sqldata:
+

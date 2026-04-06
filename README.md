@@ -22,8 +22,8 @@ A .NET ASP.NET Core MVC container application for Texas Health and Human Service
 |-----------|-----------|
 | Framework | ASP.NET Core 10 MVC |
 | Authentication | Microsoft.Identity.Web (Entra ID / Azure AD) |
-| Database | SQL Server (EF Core) |
-| Resume Storage | Azure Blob Storage |
+| Database | **Azure SQL Database** (EF Core SqlServer provider) |
+| Resume Storage | **Azure Blob Storage** |
 | AI Skills Extraction | Azure Document Intelligence (Form Recognizer) |
 | Container | Docker / Azure Container Apps |
 | UI | Bootstrap 5 |
@@ -34,13 +34,32 @@ A .NET ASP.NET Core MVC container application for Texas Health and Human Service
 
 - .NET SDK 10.0+
 - Docker & Docker Compose
-- Azure subscription (for Entra ID, Blob Storage, Document Intelligence)
+- Azure subscription (Azure SQL, Blob Storage, Entra ID app registration, optionally Document Intelligence)
+
+### Azure SQL Database Setup
+
+1. Create an **Azure SQL Server** and **Azure SQL Database** in the Azure portal (or via `az sql server create / az sql db create`).
+2. Enable **Microsoft Entra authentication** on the SQL Server.
+3. Grant your Container App's **Managed Identity** the `db_owner` (or appropriate) role on the database.
+4. Use the following connection string format (no password needed when using Managed Identity):
+   ```
+   Server=tcp:<server>.database.windows.net,1433;Database=JobApplicationSiteDb;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
+   ```
+   > For local development you can use a standard SQL authentication connection string or LocalDB.
+
+### Azure Blob Storage Setup
+
+1. Create an **Azure Storage Account**.
+2. Create a container named `resumes` (or set `AzureStorage:ContainerName` to your chosen name).
+3. Grant your Container App's **Managed Identity** the `Storage Blob Data Contributor` role on the storage account.
+4. Set `AzureStorage:AccountUri` to `https://<account>.blob.core.windows.net` — no key or connection string required.
+   > For local development you can alternatively set `AzureStorage:ConnectionString` to a shared-key or SAS connection string. If neither is set the app falls back to local filesystem storage.
 
 ### Local Development
 
 1. **Clone the repository**
 
-2. **Configure Azure AD** — register an app in Entra ID and fill in `appsettings.json`:
+2. **Configure Azure AD** — register an app in Entra ID and fill in `appsettings.Development.json` (or user secrets):
    ```json
    "AzureAd": {
      "TenantId": "YOUR_TENANT_ID",
@@ -49,20 +68,27 @@ A .NET ASP.NET Core MVC container application for Texas Health and Human Service
    }
    ```
 
-3. **Configure Azure Storage and Document Intelligence** (optional for local dev — falls back to local file storage):
+3. **Database** — for local dev, `appsettings.Development.json` overrides the connection string to use LocalDB:
    ```json
-   "AzureStorage": { "ConnectionString": "...", "ContainerName": "resumes" },
+   "ConnectionStrings": {
+     "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=JobApplicationSiteDb;Trusted_Connection=True;"
+   }
+   ```
+
+4. **Blob Storage** (optional for local dev) — set `AzureStorage:AccountUri` (Managed Identity) or `AzureStorage:ConnectionString` (shared key). If omitted, the app stores resumes in the local `uploads/` folder.
+
+5. **Document Intelligence** (optional):
+   ```json
    "AzureDocumentIntelligence": { "Endpoint": "...", "ApiKey": "..." }
    ```
 
-4. **Run with Docker Compose**:
+6. **Run with Docker Compose** (starts app + local SQL Server container):
    ```bash
-   cp .env.example .env   # edit as needed
    docker-compose up --build
    ```
    The app will be available at `http://localhost:8080`.
 
-5. **Run locally with .NET CLI** (requires SQL Server):
+7. **Run locally with .NET CLI**:
    ```bash
    cd src/JobApplicationSite
    dotnet run
@@ -70,7 +96,11 @@ A .NET ASP.NET Core MVC container application for Texas Health and Human Service
 
 ### Container Deployment (Azure Container Apps)
 
-The `Dockerfile` in the repository root builds a production image. Deploy to Azure Container Apps with:
+The `Dockerfile` in the repository root builds a production image. Assign a **system-assigned Managed Identity** to the Container App, grant it:
+- `db_owner` (or least-privilege reader/writer) on the Azure SQL Database
+- `Storage Blob Data Contributor` on the Azure Storage Account
+
+Then deploy:
 
 ```bash
 az containerapp create \
@@ -79,14 +109,17 @@ az containerapp create \
   --environment <env> \
   --image <acr>.azurecr.io/hhsc-job-portal:latest \
   --target-port 8080 \
+  --system-assigned \
   --env-vars \
     AzureAd__TenantId=<tid> \
     AzureAd__ClientId=<cid> \
-    ConnectionStrings__DefaultConnection="<sql-connection-string>" \
-    AzureStorage__ConnectionString="<storage>" \
-    AzureDocumentIntelligence__Endpoint="<endpoint>" \
-    AzureDocumentIntelligence__ApiKey="<key>"
+    "ConnectionStrings__DefaultConnection=Server=tcp:<server>.database.windows.net,1433;Database=JobApplicationSiteDb;Authentication=Active Directory Default;Encrypt=True;" \
+    "AzureStorage__AccountUri=https://<account>.blob.core.windows.net" \
+    AzureDocumentIntelligence__Endpoint=<endpoint> \
+    AzureDocumentIntelligence__ApiKey=<key>
 ```
+
+> **Tip:** Store secrets (`ApiKey`, connection strings with passwords) in **Azure Key Vault** and reference them via Container Apps secrets rather than plain environment variables.
 
 ## Project Structure
 
