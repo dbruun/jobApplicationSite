@@ -1,0 +1,61 @@
+@model JobApplicationSite.Models.CandidateApplication
+@{
+    ViewData["Title"] = "Submission Confirmation";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        @if (Model.IsDisqualified)
+        {
+            <div class="card border-danger shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">⛔ Submission Received — Disqualified (DQ)</h4>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Your submission was received but has been <strong>automatically disqualified</strong>.</p>
+                    <div class="alert alert-danger">
+                        <strong>DQ Reason:</strong> @Model.DisqualificationReason
+                    </div>
+                    <p>If you believe this is an error, please contact the HHSC procurement team.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card border-success shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">✅ Submission Received Successfully</h4>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Thank you! Your candidate submission has been received.</p>
+
+                    <dl class="row">
+                        <dt class="col-sm-4">Confirmation #</dt>
+                        <dd class="col-sm-8"><strong>@Model.Id</strong></dd>
+
+                        <dt class="col-sm-4">Candidate</dt>
+                        <dd class="col-sm-8">@Model.FullName</dd>
+
+                        <dt class="col-sm-4">Job Posting</dt>
+                        <dd class="col-sm-8">@Model.JobPosting?.Title (@Model.JobPosting?.PostingNumber)</dd>
+
+                        <dt class="col-sm-4">Submitted At</dt>
+                        <dd class="col-sm-8">@Model.SubmittedAt.ToString("MMMM dd, yyyy HH:mm UTC")</dd>
+
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8"><span class="badge bg-primary">@Model.Status</span></dd>
+                    </dl>
+
+                    <p class="text-muted small mt-3">
+                        Please save your Confirmation # <strong>@Model.Id</strong> for your records.
+                        HHSC staff will review the submission and may contact you if additional information is needed.
+                    </p>
+                </div>
+            </div>
+        }
+
+        <div class="mt-3">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary">← Back to Open Postings</a>
+        </div>
+    </div>
+</div>

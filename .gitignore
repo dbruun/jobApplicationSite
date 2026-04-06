@@ -1,0 +1,29 @@
+## .NET build output
+bin/
+obj/
+
+## Visual Studio files
+.vs/
+*.user
+*.suo
+
+## Rider IDE
+.idea/
+
+## NuGet
+*.nupkg
+packages/
+
+## Upload directory (local dev only)
+src/JobApplicationSite/uploads/
+
+## Env file (contains secrets)
+.env
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+*.log
+logs/

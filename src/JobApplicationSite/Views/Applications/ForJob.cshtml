@@ -1,0 +1,198 @@
+@model JobApplicationSite.Models.ApplicationsListViewModel
+@using JobApplicationSite.Models
+@{
+    ViewData["Title"] = $"Applications — {Model.JobPosting.PostingNumber}";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+    <div>
+        <h1 class="mb-0">Applications</h1>
+        <p class="text-muted mb-0">@Model.JobPosting.Title &mdash; <code>@Model.JobPosting.PostingNumber</code></p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a asp-controller="Applications" asp-action="DownloadAllResumes" asp-route-id="@Model.JobPosting.Id"
+           class="btn btn-success">
+            ⬇️ Download All Resumes (.zip)
+        </a>
+        <button type="button" class="btn btn-outline-primary" id="copyShareLink">
+            🔗 Copy Share Link
+        </button>
+        <a asp-controller="JobPostings" asp-action="Index" class="btn btn-outline-secondary">← Back to Postings</a>
+    </div>
+</div>
+
+<!-- Stats bar -->
+<div class="row g-3 mb-4">
+    <div class="col-auto">
+        <div class="card text-center px-4 py-2">
+            <div class="fs-3 fw-bold">@Model.TotalCount</div>
+            <div class="text-muted small">Total Submissions</div>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card text-center px-4 py-2 border-danger">
+            <div class="fs-3 fw-bold text-danger">@Model.DisqualifiedCount</div>
+            <div class="text-muted small">Disqualified (DQ)</div>
+        </div>
+    </div>
+    <div class="col-auto">
+        <div class="card text-center px-4 py-2 border-success">
+            <div class="fs-3 fw-bold text-success">@(Model.TotalCount - Model.DisqualifiedCount)</div>
+            <div class="text-muted small">Active</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter form -->
+<div class="card mb-4">
+    <div class="card-header fw-bold">🔍 Filter Applications</div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <input type="hidden" name="id" value="@Model.JobPosting.Id" />
+            <div class="col-md-5">
+                <label class="form-label">Skills (comma-separated)</label>
+                <input type="text" name="skills" class="form-control" value="@Model.SkillsFilter"
+                       placeholder="e.g. sql, azure, project management" />
+                <div class="form-text">Filter by skills extracted from the resume and application by Azure AI.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Submitted" selected="@(Model.StatusFilter == "Submitted")">Submitted</option>
+                    <option value="Under Review" selected="@(Model.StatusFilter == "Under Review")">Under Review</option>
+                    <option value="Disqualified" selected="@(Model.StatusFilter == "Disqualified")">Disqualified</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+            </div>
+            <div class="col-md-2">
+                <a asp-action="ForJob" asp-route-id="@Model.JobPosting.Id" class="btn btn-outline-secondary w-100">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Applications table -->
+@if (!Model.Applications.Any())
+{
+    <div class="alert alert-info">
+        No applications match your current filters.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Candidate</th>
+                    <th>Email</th>
+                    <th>Vendor</th>
+                    <th>DIR ID</th>
+                    <th>Skills</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Resume</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var app in Model.Applications)
+                {
+                    <tr class="@(app.IsDisqualified ? "table-danger" : "")">
+                        <td>@app.Id</td>
+                        <td>
+                            <strong>@app.FullName</strong>
+                            @if (!string.IsNullOrEmpty(app.CoverLetter))
+                            {
+                                <br />
+                                <small class="text-muted" title="@app.CoverLetter">
+                                    📝 @(app.CoverLetter.Length > 60 ? app.CoverLetter[..60] + "…" : app.CoverLetter)
+                                </small>
+                            }
+                        </td>
+                        <td>
+                            <a href="mailto:@app.Email">@app.Email</a>
+                            @if (!string.IsNullOrEmpty(app.Phone))
+                            {
+                                <br /><small>@app.Phone</small>
+                            }
+                        </td>
+                        <td>
+                            @app.VendorName
+                            @if (!string.IsNullOrEmpty(app.VendorContactEmail))
+                            {
+                                <br /><small><a href="mailto:@app.VendorContactEmail">@app.VendorContactEmail</a></small>
+                            }
+                        </td>
+                        <td><code>@app.DirCandidateId</code></td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(app.ExtractedSkills))
+                            {
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var skill in app.ExtractedSkills.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(5))
+                                    {
+                                        <span class="badge bg-secondary">@skill</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">@app.SubmittedAt.ToString("MM/dd/yyyy HH:mm")</td>
+                        <td>
+                            @if (app.IsDisqualified)
+                            {
+                                <span class="badge bg-danger" title="@app.DisqualificationReason">DQ</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-@(app.Status == "Submitted" ? "primary" : "info")">@app.Status</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(app.ResumeBlobPath))
+                            {
+                                <a asp-action="DownloadResume" asp-route-id="@app.Id" class="btn btn-sm btn-outline-success">
+                                    ⬇️ Resume
+                                </a>
+                            }
+                            else
+                            {
+                                <span class="text-danger small">No file</span>
+                            }
+                        </td>
+                    </tr>
+                    @if (app.IsDisqualified && !string.IsNullOrEmpty(app.DisqualificationReason))
+                    {
+                        <tr class="table-danger">
+                            <td colspan="9" class="small text-danger py-1 ps-3">
+                                ⛔ <strong>DQ Reason:</strong> @app.DisqualificationReason
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- Hidden share link -->
+<input type="hidden" id="shareableLink" value="@Model.ShareableLink" />
+
+@section Scripts {
+<script>
+document.getElementById('copyShareLink')?.addEventListener('click', function () {
+    var link = document.getElementById('shareableLink').value;
+    navigator.clipboard.writeText(link).then(function () {
+        alert('Share link copied to clipboard:\n' + link);
+    }).catch(function () {
+        prompt('Copy this link to share with other HHSC employees:', link);
+    });
+});
+</script>
+}

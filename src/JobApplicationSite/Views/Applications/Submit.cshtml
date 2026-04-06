@@ -1,0 +1,113 @@
+@model JobApplicationSite.Models.SubmissionViewModel
+@{
+    ViewData["Title"] = $"Submit a Candidate — {Model.PostingNumber}";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">📋 Candidate Submission Form</h4>
+                <small>@Model.JobTitle — Posting #@Model.PostingNumber</small>
+            </div>
+            <div class="card-body">
+
+                <div class="alert alert-warning">
+                    <strong>⚠️ Important — Disqualification (DQ) Criteria:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Duplicate submissions are an <strong>immediate DQ</strong>.</li>
+                        <li>Submissions <strong>without a resume attachment</strong> will be disqualified.</li>
+                        <li>Submissions made without uploading the candidate to <strong>DIR (Department of Information Resources)</strong> will be disqualified.</li>
+                    </ul>
+                </div>
+
+                <form asp-action="Submit" asp-route-id="@Model.JobPostingId" method="post" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                    <input type="hidden" asp-for="JobPostingId" />
+
+                    <h5 class="mt-3 mb-3 border-bottom pb-2">Candidate Information</h5>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="FirstName" class="form-label"></label>
+                            <input asp-for="FirstName" class="form-control" placeholder="First name" />
+                            <span asp-validation-for="FirstName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="LastName" class="form-label"></label>
+                            <input asp-for="LastName" class="form-control" placeholder="Last name" />
+                            <span asp-validation-for="LastName" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Email" class="form-label"></label>
+                            <input asp-for="Email" class="form-control" type="email" placeholder="candidate@example.com" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Phone" class="form-label"></label>
+                            <input asp-for="Phone" class="form-control" type="tel" placeholder="(512) 555-0100" />
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-3 mb-3 border-bottom pb-2">Vendor / Agency Information</h5>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="VendorName" class="form-label"></label>
+                            <input asp-for="VendorName" class="form-control" placeholder="Agency or staffing company name" />
+                            <span asp-validation-for="VendorName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="VendorContactEmail" class="form-label"></label>
+                            <input asp-for="VendorContactEmail" class="form-control" type="email" placeholder="recruiter@agency.com" />
+                            <span asp-validation-for="VendorContactEmail" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-3 mb-3 border-bottom pb-2">DIR Compliance</h5>
+
+                    <div class="mb-3">
+                        <label asp-for="DirCandidateId" class="form-label"></label>
+                        <input asp-for="DirCandidateId" class="form-control" placeholder="DIR-2026-XXXXXX" />
+                        <div class="form-text text-danger fw-semibold">
+                            Required. The candidate must be uploaded to DIR before submitting.
+                            Submissions without a valid DIR Candidate ID will be <strong>disqualified</strong>.
+                        </div>
+                        <span asp-validation-for="DirCandidateId" class="text-danger"></span>
+                    </div>
+
+                    <h5 class="mt-3 mb-3 border-bottom pb-2">Resume & Cover Letter</h5>
+
+                    <div class="mb-3">
+                        <label asp-for="Resume" class="form-label"></label>
+                        <input asp-for="Resume" type="file" class="form-control" accept=".pdf,.doc,.docx" />
+                        <div class="form-text">Accepted formats: PDF, DOC, DOCX. Maximum 10 MB.
+                            <strong class="text-danger">A resume is required. Submissions without a resume will be disqualified.</strong>
+                        </div>
+                        <span asp-validation-for="Resume" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="CoverLetter" class="form-label"></label>
+                        <textarea asp-for="CoverLetter" class="form-control" rows="4"
+                                  placeholder="Optional: cover letter, summary of qualifications, or notes for the reviewer…"></textarea>
+                        <span asp-validation-for="CoverLetter" class="text-danger"></span>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary btn-lg">Submit Candidate</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
