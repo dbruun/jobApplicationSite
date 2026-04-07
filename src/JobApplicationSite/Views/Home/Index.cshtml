@@ -1,0 +1,85 @@
+﻿@model List<JobApplicationSite.Models.JobPosting>
+@{
+    ViewData["Title"] = "Open Job Postings";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="p-4 bg-primary text-white rounded-3">
+            <h1 class="display-5 fw-bold">HHSC Job Application Portal</h1>
+            <p class="lead">Texas Health and Human Services Commission — Vendor Candidate Submission System</p>
+            <p>Browse open job postings below. Click <strong>Submit a Candidate</strong> to submit a candidate for a position.</p>
+            @if (User.Identity?.IsAuthenticated != true)
+            {
+                <a class="btn btn-light btn-lg mt-2"
+                   asp-area="MicrosoftIdentity" asp-controller="Account" asp-action="SignIn">
+                    🔐 HHSC Employee Sign In
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        <strong>No active job postings at this time.</strong>
+        Please check back later, or <a asp-area="MicrosoftIdentity" asp-controller="Account" asp-action="SignIn">sign in</a> to manage postings.
+    </div>
+}
+else
+{
+    <h2 class="mb-3">Open Positions</h2>
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+        @foreach (var posting in Model)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">@posting.PostingNumber</span>
+                        @if (posting.ClosingDate.HasValue && posting.ClosingDate.Value < DateTime.UtcNow)
+                        {
+                            <span class="badge bg-danger">Closed</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Open</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">@posting.Title</h5>
+                        <p class="card-text text-muted small">
+                            @if (!string.IsNullOrEmpty(posting.Department))
+                            {
+                                <span>🏛️ @posting.Department</span><br />
+                            }
+                            @if (!string.IsNullOrEmpty(posting.Location))
+                            {
+                                <span>📍 @posting.Location</span><br />
+                            }
+                            <span>📅 Posted: @posting.PostedDate.ToString("MMM dd, yyyy")</span>
+                            @if (posting.ClosingDate.HasValue)
+                            {
+                                <br /><span>⏰ Closes: @posting.ClosingDate.Value.ToString("MMM dd, yyyy")</span>
+                            }
+                        </p>
+                        <p class="card-text">@(posting.Description.Length > 200 ? posting.Description[..200] + "…" : posting.Description)</p>
+                    </div>
+                    <div class="card-footer d-flex gap-2">
+                        <a asp-controller="Applications" asp-action="Submit" asp-route-id="@posting.Id"
+                           class="btn btn-primary btn-sm flex-grow-1">
+                            📋 Submit a Candidate
+                        </a>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <a asp-controller="Applications" asp-action="ForJob" asp-route-id="@posting.Id"
+                               class="btn btn-outline-secondary btn-sm">
+                                👀 View Applications
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

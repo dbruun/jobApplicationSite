@@ -1,0 +1,28 @@
+@model JobApplicationSite.Models.JobPosting
+@{
+    ViewData["Title"] = "Delete Job Posting";
+}
+
+<h1>Delete Job Posting</h1>
+<hr />
+
+<div class="alert alert-warning">
+    <strong>Warning:</strong> Deleting this posting will also delete all associated applications and uploaded resumes. This action cannot be undone.
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Posting Number</dt>
+    <dd class="col-sm-9">@Model.PostingNumber</dd>
+    <dt class="col-sm-3">Title</dt>
+    <dd class="col-sm-9">@Model.Title</dd>
+    <dt class="col-sm-3">Department</dt>
+    <dd class="col-sm-9">@Model.Department</dd>
+</dl>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
