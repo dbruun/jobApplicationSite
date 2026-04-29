@@ -23,8 +23,8 @@ targetScope = 'resourceGroup'
 
 // ── Parameters ────────────────────────────────────────────────────────────────
 
-@description('Azure region for all resources. Defaults to the resource group location.')
-param location string = resourceGroup().location
+@description('Azure region for all resources. Defaults to Central US.')
+param location string = 'centralus'
 
 @description('Short environment prefix used to derive all resource names (e.g. hhsc-jobportal-prod). Must be lowercase, alphanumeric with hyphens.')
 @minLength(3)

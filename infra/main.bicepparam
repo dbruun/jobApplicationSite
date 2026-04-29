@@ -19,8 +19,8 @@ using 'main.bicep'
 // Short environment prefix — drives all resource names.
 param environmentName = 'hhsc-jobportal-prod'
 
-// Azure region (leave empty to inherit from resource group, or override here).
-param location = 'eastus'
+// Azure region — all resources deploy to Central US.
+param location = 'centralus'
 
 // SQL local admin — only used during initial provisioning.
 // Entra-only authentication is enforced by the template.
