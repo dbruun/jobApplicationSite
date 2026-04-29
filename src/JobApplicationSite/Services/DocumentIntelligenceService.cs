@@ -1,5 +1,5 @@
-using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.Identity;
 
 namespace JobApplicationSite.Services;
 
@@ -9,7 +9,7 @@ namespace JobApplicationSite.Services;
 /// </summary>
 public class DocumentIntelligenceService : IResumeAnalysisService
 {
-    private readonly DocumentAnalysisClient? _client;
+    private readonly DocumentAnalysisClient _client;
     private readonly ILogger<DocumentIntelligenceService> _logger;
 
     // Common technical / professional skill keywords to look for
@@ -30,15 +30,14 @@ public class DocumentIntelligenceService : IResumeAnalysisService
         _logger = logger;
 
         var endpoint = configuration["AzureDocumentIntelligence:Endpoint"];
-        var apiKey = configuration["AzureDocumentIntelligence:ApiKey"];
 
-        if (!string.IsNullOrWhiteSpace(endpoint) && !string.IsNullOrWhiteSpace(apiKey))
+        if (!string.IsNullOrWhiteSpace(endpoint))
         {
-            _client = new DocumentAnalysisClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+            _client = new DocumentAnalysisClient(new Uri(endpoint), new DefaultAzureCredential());
         }
         else
         {
-            _logger.LogWarning("Azure Document Intelligence is not configured. Skill extraction will use text-based fallback.");
+            throw new InvalidOperationException("Azure Document Intelligence is not configured. Set AzureDocumentIntelligence:Endpoint in configuration.");
         }
     }
 
@@ -47,30 +46,16 @@ public class DocumentIntelligenceService : IResumeAnalysisService
         string contentType,
         CancellationToken cancellationToken = default)
     {
-        if (_client == null)
-        {
-            return await ExtractSkillsFallbackAsync(resumeStream, cancellationToken);
-        }
+        var operation = await _client!.AnalyzeDocumentAsync(
+            WaitUntil.Completed,
+            "prebuilt-read",
+            resumeStream,
+            cancellationToken: cancellationToken);
 
-        try
-        {
-            var operation = await _client.AnalyzeDocumentAsync(
-                WaitUntil.Completed,
-                "prebuilt-read",
-                resumeStream,
-                cancellationToken: cancellationToken);
+        var result = operation.Value;
+        var allText = string.Join(" ", result.Pages.SelectMany(p => p.Lines).Select(l => l.Content));
 
-            var result = operation.Value;
-            var allText = string.Join(" ", result.Pages.SelectMany(p => p.Lines).Select(l => l.Content));
-
-            return ExtractSkillsFromText(allText);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Azure Document Intelligence analysis failed; falling back to stream-based extraction.");
-            resumeStream.Position = 0;
-            return await ExtractSkillsFallbackAsync(resumeStream, cancellationToken);
-        }
+        return ExtractSkillsFromText(allText);
     }
 
     public bool MatchesSkillFilter(string extractedSkills, string filter)
@@ -81,22 +66,6 @@ public class DocumentIntelligenceService : IResumeAnalysisService
         var terms = filter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return terms.Any(term =>
             extractedSkills.Contains(term, StringComparison.OrdinalIgnoreCase));
-    }
-
-    // Fallback: read raw bytes as UTF-8 text and scan for keywords
-    private Task<string> ExtractSkillsFallbackAsync(Stream resumeStream, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var reader = new StreamReader(resumeStream, leaveOpen: true);
-            var text = reader.ReadToEnd();
-            return Task.FromResult(ExtractSkillsFromText(text));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Fallback skill extraction failed.");
-            return Task.FromResult(string.Empty);
-        }
     }
 
     private static string ExtractSkillsFromText(string text)

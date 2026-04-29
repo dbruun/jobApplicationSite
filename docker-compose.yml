@@ -29,34 +29,26 @@ services:
       - ConnectionStrings__DefaultConnection=Server=db;Database=JobApplicationSiteDb;User Id=sa;Password=${SQL_PASSWORD:-YourStrong!Passw0rd};TrustServerCertificate=True
       - AzureAd__TenantId=${AZURE_TENANT_ID}
       - AzureAd__ClientId=${AZURE_CLIENT_ID}
-      # Azure Blob Storage — set AccountUri for Managed Identity (preferred in prod)
-      # or ConnectionString for shared-key auth. Leave both empty to use local filesystem.
+      - AzureAd__Domain=MngEnvMCAP003733.onmicrosoft.com
+      # Azure Blob Storage — set AccountUri for Managed Identity (DefaultAzureCredential)
       - AzureStorage__AccountUri=${AZURE_STORAGE_ACCOUNT_URI}
-      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
       - AzureDocumentIntelligence__Endpoint=${AZURE_DOC_INTELLIGENCE_ENDPOINT}
-      - AzureDocumentIntelligence__ApiKey=${AZURE_DOC_INTELLIGENCE_KEY}
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: unless-stopped
 
   # Local SQL Server — DEVELOPMENT ONLY.
   # In production, point DefaultConnection at an Azure SQL Database.
+  # Using Azure SQL Edge for ARM64 compatibility.
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=${SQL_PASSWORD:-YourStrong!Passw0rd}
+      - MSSQL_SA_PASSWORD=${SQL_PASSWORD:-YourStrong!Passw0rd}
     ports:
       - "1433:1433"
     volumes:
       - sqldata:/var/opt/mssql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${SQL_PASSWORD:-YourStrong!Passw0rd} -Q 'SELECT 1' -No || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
 
 volumes:
   sqldata:

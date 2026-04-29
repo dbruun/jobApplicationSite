@@ -11,13 +11,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Authentication: Entra ID (Azure AD) ───────────────────────────────────────
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+    .AddMicrosoftIdentityWebApp(options =>
+    {
+        builder.Configuration.GetSection("AzureAd").Bind(options);
+        options.ResponseType = "code";
+    });
 
 builder.Services.AddAuthorization();
 
 // ── MVC + Razor Pages (for Microsoft.Identity.Web.UI sign-in/out pages) ──────
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
+builder.Services.AddRazorPages();
 
 // ── Database: Azure SQL (EF Core SqlServer provider) ─────────────────────────
 // In production, use an Azure SQL connection string with Managed Identity:
@@ -32,24 +37,16 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
             errorNumbersToAdd: null)));
 
 // ── Azure Blob Storage ────────────────────────────────────────────────────────
-// Prefer Managed Identity (no secrets): set AzureStorage:AccountUri to
+// Managed Identity (DefaultAzureCredential): set AzureStorage:AccountUri to
 //   "https://<account>.blob.core.windows.net"
-// Fallback to connection string:  AzureStorage:ConnectionString
-// Dev-only fallback: local file system when neither is configured.
+// Dev-only fallback: local file system when AccountUri is not configured.
 var storageAccountUri = builder.Configuration["AzureStorage:AccountUri"];
-var storageConnectionString = builder.Configuration["AzureStorage:ConnectionString"];
 
 if (!string.IsNullOrWhiteSpace(storageAccountUri))
 {
     // Managed Identity / DefaultAzureCredential (recommended for production)
     builder.Services.AddSingleton(
         new BlobServiceClient(new Uri(storageAccountUri), new DefaultAzureCredential()));
-    builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
-}
-else if (!string.IsNullOrWhiteSpace(storageConnectionString))
-{
-    // Connection string (shared-key or SAS — suitable for dev/testing)
-    builder.Services.AddSingleton(new BlobServiceClient(storageConnectionString));
     builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 }
 else
